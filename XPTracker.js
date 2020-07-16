@@ -197,11 +197,9 @@
         <button id="${ID_PREFIX}-dropdown-button" type="button" class="btn btn-sm btn-dual" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
           <img class="skill-icon-xxs" src="assets/media/main/statistics_header.svg" />
         </button>
-        <div id="${ID_PREFIX}-dropdown-ui" class="dropdown-menu dropdown-menu-lg dropdown-menu-right p-0 font-size-sm" aria-labelledby="${ID_PREFIX}-dropdown-button" x-placement="bottom-end">
+        <div id="${ID_PREFIX}-dropdown-ui" class="dropdown-menu dropdown-menu-right p-0 font-size-sm" aria-labelledby="${ID_PREFIX}-dropdown-button" style="min-width: 350px;" x-placement="bottom-end">
           <div class="bg-primary text-center">
-            <h5 class="dropdown-header text-uppercase">
-              XP Tracker by shamsup
-            </h5>
+            <h5 class="dropdown-header">XP Tracker by shamsup</h5>
           </div>
           <div class="col-12 my-2 d-flex justify-content-between flex-wrap">${
             xpTrackerTabs.map((interval, intervalIndex) => `
@@ -214,11 +212,11 @@
               <table class="table table-sm table-vcenter my-0">
                 <thead>
                   <tr>
-                    <th class="text-left" style="width: 50px" scope="col"><small>Skill</small></th>
-                    <th class="text-right" scope="col"><small>XP</small></th>
-                    <th class="text-right" scope="col"><small>Time</small></th>
+                    <th class="text-left" style="width: 42px" scope="col"><small>Skill</small></th>
+                    <th class="text-right" style="min-width: 90px;" scope="col"><small>XP</small></th>
+                    <th class="text-right" style="min-width: 90px;" scope="col"><small>Time</small></th>
                     ${
-                      intervalIndex !== 0 ? '<th class="text-right" scope="col"><small>Projected XP</small></th>' : ''
+                      intervalIndex !== 0 ? '<th class="text-right text-nowrap" style="min-width: 90px;" scope="col"><small>Projected XP</small></th>' : ''
                     }
                   </tr>
                 </thead>
@@ -249,9 +247,9 @@
         let $skill = $list.find(`#${ID_PREFIX}-list-${intervalIndex}-skill-${skillIndex}`);
         if (skillActive[skillIndex]) {
           const skillTracker = xpTracker[skill][interval];
-          let xpFormatted = (Math.floor(skillTracker.actual * 100) / 100) + 'xp';
+          let xpFormatted = skillTracker.actual.toFixed(2) + 'xp';
           let periodFormatted = timeToString(Math.floor(skillTracker.period / 1000), true);
-          let projectedXPFormatted = isSession ? '' : (Math.floor(skillTracker.projected * 100) / 100) + 'xp';
+          let projectedXPFormatted = isSession ? '' : skillTracker.projected.toFixed(2) + 'xp';
 
           if ($skill.length) {
             $skill.find('.actual').html(xpFormatted);
@@ -263,10 +261,10 @@
             $skill = $(`
               <tr id="${ID_PREFIX}-list-${intervalIndex}-skill-${skillIndex}">
                 <th class="text-left" scope="row"><img class="skill-icon-xxs" src="assets/media/skills/${skill.toLowerCase()}/${skill.toLowerCase()}.svg" alt="${skill}" /></th>
-                <td class="text-right"><small class="actual">${xpFormatted}</small></td>
-                <td class="text-right"><small class="period">${periodFormatted}</small></td>
+                <td class="text-right text-nowrap"><small class="actual">${xpFormatted}</small></td>
+                <td class="text-right text-nowrap"><small class="period">${periodFormatted}</small></td>
                 ${
-                  isSession ? '' : `<td class="text-right"><small class="projected">${projectedXPFormatted}</small></td>`
+                  isSession ? '' : `<td class="text-right text-nowrap"><small class="projected">${projectedXPFormatted}</small></td>`
                 }
               </tr>
             `);
