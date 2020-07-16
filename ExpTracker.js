@@ -1,15 +1,15 @@
 (function () {
   const TRACKING_TIME_MINUTES = [60, 60 * 6]; // modify here for different breakdowns, multiple is OK
-  const MS_ACCURACY = 20 * 1000; // polling interval in milliseconds for exp checks
+  const MS_ACCURACY = 20 * 1000; // polling interval in milliseconds for xp checks
 
   const VALUE = 0, TIMESTAMP = 1, NEXT = 2;
-  // linked list, Node: [expValue, timestamp, nextNode]
-  function EXPList(expireMinutes) {
+  // linked list, Node: [xpValue, timestamp, nextNode]
+  function XPList(expireMinutes) {
     this.head = null;
     this.tail = null;
     this._expireTime = expireMinutes * 60 * 1000;
   };
-  EXPList.prototype.add = function EXPListAdd(value, timestamp = Date.now()) {
+  XPList.prototype.add = function XPListAdd(value, timestamp = Date.now()) {
     if (this.tail && this.tail[VALUE] === value) {
       this.tail[TIMESTAMP] = timestamp;
     } else {
@@ -26,7 +26,7 @@
       this.tail = node;
     }
   };
-  EXPList.prototype.expireNodes = function EXPListExpireNodes(now = Date.now()) {
+  XPList.prototype.expireNodes = function XPListExpireNodes(now = Date.now()) {
     const minAllowedTime = now - this._expireTime;
     if (!this.head) {
       return;
@@ -37,13 +37,13 @@
     }
     this.head[NEXT] = node;
   };
-  EXPList.prototype.getRange = function EXPListGetRange() {
+  XPList.prototype.getRange = function XPListGetRange() {
     if (!this.head) {
       return 0;
     }
     return this.tail[VALUE] - this.head[VALUE];
   };
-  EXPList.prototype.getPeriod = function EXPListGetPeriod() {
+  XPList.prototype.getPeriod = function XPListGetPeriod() {
     if (!this.head) {
       return 0;
     }
@@ -83,9 +83,9 @@
     }
     return this._trackingList.tail[TIMESTAMP] - this.head[TIMESTAMP];
   };
-  
 
-  console.log('Initializing EXP tracker...');
+
+  console.log('Initializing XP tracker...');
 
   const trackingMinuteStrings = (function () {
     const modifiers = [24 * 60, 60, 1];
@@ -106,52 +106,68 @@
 
   const MAX_KEEP_MINUTES = Math.max.apply(Math, TRACKING_TIME_MINUTES);
 
-  window.expTrackingReset = initialize;
+  window.xpTrackingReset = initialize;
   initialize();
 
   function initialize() {
     const skillNames = window.skillName;
 
-    // individual exp tracker for each skill
-    const skillSessionExp = skillNames.map(() => new EXPList(MAX_KEEP_MINUTES));
+    // individual session xp tracker for each skill
+    const skillSessionXP = skillNames.map(() => new XPList(MAX_KEEP_MINUTES));
 
     const now = Date.now();
-    // initialize each skill's exp
-    getSkillsExp().forEach((exp, i) => skillSessionExp[i].add(exp, now));
-    // initialize trackers for each interval
-    const skillIntervalExp = TRACKING_TIME_MINUTES.map(minutes => skillSessionExp.map(expList => new WindowedList(expList, minutes)));
-    
-    // { 'Woodcutting': { Session: number, '1 hour': number }, ... }
-    window.MAExpTracker = {};
+    // initialize each skill's xp
+    getSkillsXP().forEach((xp, i) => skillSessionXP[i].add(xp, now));
+    // initialize trackers for each interval for each skill
+    const skillIntervalXP = TRACKING_TIME_MINUTES.map(minutes => skillSessionXP.map(xpList => new WindowedList(xpList, minutes)));
 
-    function updateExpTracker() {
+    /*
+      {
+        'Woodcutting': {
+          'Session': {
+            actual: <number: xp gained>,
+            period: <number: ms duration of session>
+          },
+          [interval as string (ie '1 hour')]: {
+            actual: <number: xp gained during `period`>,
+            period: <number: ms time `actual` was measured (may vary from interval specified)>,
+            projected: <number: expected xp gain for the interval (actual * (interval / period))>
+          },
+          ...all intervals
+        },
+        ...all skills
+      }
+    */
+    window.shamsupXPTracker = {};
+
+    function updateXPTracker() {
       const now = Date.now();
-      getSkillsExp().forEach((exp, i) => {
-        skillSessionExp[i].add(exp, now);
-        skillSessionExp[i].expireNodes(now);
+      getSkillsXP().forEach((xp, i) => {
+        skillSessionXP[i].add(xp, now);
+        skillSessionXP[i].expireNodes(now);
       });
-      skillIntervalExp.forEach(expLists => expLists.forEach(expList => expList.expireNodes(now)));
+      skillIntervalXP.forEach(xpLists => xpLists.forEach(xpList => xpList.expireNodes(now)));
       skillNames.forEach((skillName, skillIndex) => {
-        window.MAExpTracker[skillName] = {};
-        const currentSkillTrackers = window.MAExpTracker[skillName];
-        currentSkillTrackers['Session'] = skillSessionExp[skillIndex].getRange();
+        window.shamsupXPTracker[skillName] = {};
+        const currentSkillTrackers = window.shamsupXPTracker[skillName];
+        currentSkillTrackers['Session'] = skillSessionXP[skillIndex].getRange();
         trackingMinuteStrings.forEach((interval, intervalIndex) => {
-          const intervalTracker = skillIntervalExp[intervalIndex][skillIndex];
+          const intervalTracker = skillIntervalXP[intervalIndex][skillIndex];
           currentSkillTrackers[interval] = intervalTracker.getRange();
         })
       })
     }
-    if (window.iExpTracking) {
-      clearInterval(window.iExpTracking);
+    if (window.iXPTracking) {
+      clearInterval(window.iXPTracking);
     }
-    window.iExpTracking = setInterval(updateExpTracker, MS_ACCURACY);
-    console.log('EXP tracker initialized. Cancel the tracker with "clearInterval(window.iExpTracking)".');
+    window.iXPTracking = setInterval(updateXPTracker, MS_ACCURACY);
+    console.log('XP tracker initialized. Cancel the tracker with "clearInterval(window.iXPTracking)".');
   }
 
-  function getSkillExp(skill) {
+  function getSkillXP(skill) {
     return (window.skillXP || [])[skill] || 0;
   }
-  function getSkillsExp() {
-    return (window.skillName || []).map((_, i) => getSkillExp(i));
+  function getSkillsXP() {
+    return (window.skillName || []).map((_, i) => getSkillXP(i));
   }
 })();
