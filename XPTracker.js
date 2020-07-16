@@ -106,7 +106,7 @@
 
   const MAX_KEEP_MINUTES = Math.max.apply(Math, TRACKING_TIME_MINUTES);
 
-  window.xpTrackingReset = initialize;
+  window.shamsup_xpTrackingReset = initialize;
   initialize();
 
   function initialize() {
@@ -138,7 +138,8 @@
         ...all skills
       }
     */
-    window.shamsupXPTracker = {};
+    const xpTracker = {};
+    window.shamsup_xpTracker = xpTracker;
 
     function updateXPTracker() {
       const now = Date.now();
@@ -148,14 +149,21 @@
       });
       skillIntervalXP.forEach(xpLists => xpLists.forEach(xpList => xpList.expireNodes(now)));
       skillNames.forEach((skillName, skillIndex) => {
-        window.shamsupXPTracker[skillName] = {};
-        const currentSkillTrackers = window.shamsupXPTracker[skillName];
-        currentSkillTrackers['Session'] = skillSessionXP[skillIndex].getRange();
+        xpTracker[skillName] = {};
+        const currentSkillTrackers = xpTracker[skillName];
+        currentSkillTrackers['Session'] = { actual: skillSessionXP[skillIndex].getRange(), period: skillSessionXP[skillIndex].getPeriod() };
         trackingMinuteStrings.forEach((interval, intervalIndex) => {
           const intervalTracker = skillIntervalXP[intervalIndex][skillIndex];
-          currentSkillTrackers[interval] = intervalTracker.getRange();
+          const actualXP = intervalTracker.getRange();
+          const trackPeriod = intervalTracker.getPeriod();
+          const projectedXP = (TRACKING_TIME_MINUTES[intervalIndex] * 60 * 1000) / trackPeriod;
+          currentSkillTrackers[interval] = {
+            actual: actualXP,
+            period: trackPeriod,
+            projected: projectedXP
+          };
         })
-      })
+      });
     }
     if (window.iXPTracking) {
       clearInterval(window.iXPTracking);
