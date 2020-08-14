@@ -1,6 +1,6 @@
 (function () {
   const TRACKING_TIME_MINUTES = [60, 60 * 6]; // modify here for different breakdowns, multiple is OK
-  const MS_ACCURACY = 20 * 1000; // polling interval in milliseconds for xp checks
+  const MS_ACCURACY = 5 * 1000; // polling interval in milliseconds for xp checks
   const INCLUDE_UI = true; // whether or not to add the tracker UI to the header
   const ID_PREFIX = 'shamsup-xp-tracker';
 
