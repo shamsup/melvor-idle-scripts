@@ -89,9 +89,29 @@
   };
   
   console.log('Initializing XP tracker...');
-  
+  const levelPredictionWindows = []; // minutes to base level prediction off of, by skill ID
+  levelPredictionWindows[CONSTANTS.skill.Attack] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Strength] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Defence] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Ranged] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Magic] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Hitpoints] = 20;
+  levelPredictionWindows[CONSTANTS.skill.Slayer] = 20;
+  levelPredictionWindows[CONSTANTS.skill.Prayer] = 20;
+  levelPredictionWindows[CONSTANTS.skill.Woodcutting] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Fishing] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Mining] = 20;
+  levelPredictionWindows[CONSTANTS.skill.Thieving] = 10;
+  levelPredictionWindows[CONSTANTS.skill.Cooking] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Crafting] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Firemaking] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Fletching] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Herblore] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Runecrafting] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Smithing] = 5;
+  levelPredictionWindows[CONSTANTS.skill.Farming] = 6 * 60;
   const trackingMinuteStrings = TRACKING_TIME_MINUTES.map(minutes => timeToString(minutes * 60));
-  const xpTrackerTabs = ['Session'].concat(trackingMinuteStrings);
+  const xpTrackerTabs = ['Session', 'ETA'].concat(trackingMinuteStrings);
   const MAX_KEEP_MINUTES = Math.max.apply(Math, TRACKING_TIME_MINUTES);
   let xpTrackerSelectedTab = 0;
 
@@ -100,6 +120,7 @@
   const skillNames = window.skillName;
   let skillSessionXP;
   let skillIntervalXP;
+  let skillPredictionXP;
   initialize();
 
   function initialize() {
@@ -115,6 +136,8 @@
     getSkillsXP().forEach((xp, i) => skillSessionXP[i].add(xp, now));
     // initialize trackers for each interval for each skill
     skillIntervalXP = TRACKING_TIME_MINUTES.map(minutes => skillSessionXP.map(xpList => new WindowedList(xpList, minutes)));
+    // initialize level prediction trackers for each skill
+    skillPredictionXP = levelPredictionWindows.map((minutes, skillIndex) => new WindowedList(skillSessionXP[skillIndex], minutes));
 
     loadXPValues();
 
@@ -125,6 +148,7 @@
         skillSessionXP[i].expireNodes(now);
       });
       skillIntervalXP.forEach(xpLists => xpLists.forEach(xpList => xpList.expireNodes(now)));
+      skillPredictionXP.forEach(xpList => xpList.expireNodes(now));
       loadXPValues();
       if (INCLUDE_UI) drawXPTracker();
     }
@@ -150,21 +174,45 @@
 
   function loadXPValues() {
     skillNames.forEach((skillName, skillIndex) => {
-      xpTracker[skillName] = {};
-      const currentSkillTrackers = xpTracker[skillName];
-      currentSkillTrackers['Session'] = { actual: skillSessionXP[skillIndex].getRange(), period: skillSessionXP[skillIndex].getPeriod() };
-      trackingMinuteStrings.forEach((interval, intervalIndex) => {
-        const intervalTracker = skillIntervalXP[intervalIndex][skillIndex];
-        const actualXP = intervalTracker.getRange();
-        const trackPeriod = intervalTracker.getPeriod();
-        const projectedXP = (TRACKING_TIME_MINUTES[intervalIndex] * 60 * 1000) / (trackPeriod || 1) * actualXP;
-        currentSkillTrackers[interval] = {
-          actual: actualXP,
-          period: trackPeriod,
-          projected: projectedXP
-        };
-      })
+      if (!xpTracker[skillName]) {
+        xpTracker[skillName] = {};
+      }
+      updateSkillSessionXP(skillIndex);
+      updateSkillIntervalXP(skillIndex);
+      updateSkillETAPredictionXP(skillIndex);
     });
+  }
+
+  function updateSkillSessionXP(skillIndex) {
+    xpTracker[skillNames[skillIndex]]['Session'] = {
+      actual: skillSessionXP[skillIndex].getRange(),
+      period: skillSessionXP[skillIndex].getPeriod(),
+    };
+  }
+
+  function updateSkillIntervalXP(skillIndex) {
+    trackingMinuteStrings.forEach((interval, intervalIndex) => {
+      const intervalTracker = skillIntervalXP[intervalIndex][skillIndex];
+      const actualXP = intervalTracker.getRange();
+      const trackPeriod = intervalTracker.getPeriod();
+      const projectedXP = (TRACKING_TIME_MINUTES[intervalIndex] * 60 * 1000) / (trackPeriod || 1) * actualXP;
+      xpTracker[skillNames[skillIndex]][interval] = {
+        actual: actualXP,
+        period: trackPeriod,
+        projected: projectedXP
+      };
+    });
+  }
+
+  function updateSkillETAPredictionXP(skillIndex) {
+    const nextLevelXP = exp.level_to_xp(skillLevel[skillIndex] + 1);
+    const xpToLevel = nextLevelXP - skillXP[skillIndex];
+    const periodActualXP = skillPredictionXP[skillIndex].getRange();
+    xpTracker[skillNames[skillIndex]]['ETA'] = {
+      actual: skillPredictionXP[skillIndex].getRange(),
+      progress: nextLevelProgress[skillIndex],
+      eta: (xpToLevel / periodActualXP) * skillPredictionXP[skillIndex].getPeriod(),
+    };
   }
 
   function timeToString(seconds, short = false) {
@@ -213,10 +261,16 @@
                 <thead>
                   <tr>
                     <th class="text-left" style="width: 42px" scope="col"><small>Skill</small></th>
-                    <th class="text-right" style="min-width: 90px;" scope="col"><small>XP</small></th>
-                    <th class="text-right" style="min-width: 90px;" scope="col"><small>Time</small></th>
                     ${
-                      intervalIndex !== 0 ? '<th class="text-right text-nowrap" style="min-width: 90px;" scope="col"><small>Projected XP</small></th>' : ''
+                      intervalIndex === 1 ? (`
+                        <th class="text-right" style="" scope="col"><small>%</small></th>
+                        <th class="text-center" style="width: 120px;" scope="col"><small>Progress</small></th>
+                        <th class="text-right text-nowrap" style="min-width: 90px;" scope="col"><small>ETA</small></th>
+                      `) : (`
+                        <th class="text-right" style="min-width: 90px;" scope="col"><small>XP</small></th>
+                        <th class="text-right" style="min-width: 90px;" scope="col"><small>Time</small></th>
+                        ${intervalIndex !== 0 ? '<th class="text-right text-nowrap" style="min-width: 90px;" scope="col"><small>Projected XP</small></th>' : ''}
+                      `)
                     }
                   </tr>
                 </thead>
@@ -239,36 +293,68 @@
     const $xpUI = $(`#${ID_PREFIX}-dropdown-ui`);
     xpTrackerTabs.forEach((interval, intervalIndex) => {
       const isSession = intervalIndex === 0;
+      const isEta = intervalIndex === 1;
       const $list = $xpUI.find(`#${ID_PREFIX}-list-${intervalIndex}`);
-      const skillActive = skillNames.map((skill, skillIndex) => (
-        (isSession ? xpTracker[skill].Session : xpTracker[skill][trackingMinuteStrings[intervalIndex - 1]]).actual > 0)
+      const skillActive = skillNames.map((skill, skillIndex) => {
+        if (isSession) {
+          return xpTracker[skill].Session.actual > 0;
+        } else if (isEta) {
+          return xpTracker[skill]['ETA'].actual > 0;
+        }
+        return xpTracker[skill][trackingMinuteStrings[intervalIndex - 2]].actual > 0
+      }
       );
       skillNames.forEach((skill, skillIndex) => {
         let $skill = $list.find(`#${ID_PREFIX}-list-${intervalIndex}-skill-${skillIndex}`);
         if (skillActive[skillIndex]) {
           const skillTracker = xpTracker[skill][interval];
-          let xpFormatted = skillTracker.actual.toFixed(2) + 'xp';
-          let periodFormatted = timeToString(Math.floor(skillTracker.period / 1000), true);
-          let projectedXPFormatted = isSession ? '' : skillTracker.projected.toFixed(2) + 'xp';
 
-          if ($skill.length) {
-            $skill.find('.actual').html(xpFormatted);
-            $skill.find('.period').html(periodFormatted);
-            if (!isSession) {
-              $skill.find('.projected').html(projectedXPFormatted);
+          if (isEta) {
+            let etaFormatted = timeToString(Math.floor(skillTracker.eta / 1000), true);
+            let progressFormatted = Math.floor(skillTracker.progress) + '%';
+            if ($skill.length) {
+              $skill.find('.progress .progress-bar').css('width', skillTracker.progress + '%');
+              $skill.find('.eta').html(etaFormatted);
+              $skill.find('.percent').html(progressFormatted);
+            } else {
+              $skill = $(`
+                <tr id="${ID_PREFIX}-list-${intervalIndex}-skill-${skillIndex}">
+                  <th class="text-left" scope="row"><img class="skill-icon-xxs" src="assets/media/skills/${skill.toLowerCase()}/${skill.toLowerCase()}.svg" alt="${skill}" /></th>
+                  <td class="text-right"><small class="percent">${progressFormatted}</small></td>
+                  <td class="text-center">
+                    <div class="progress combat active" style="height: 10px; width: 100%;">
+                      <div class="progress-bar bg-info" style="width: ${skillTracker.progress}%" />
+                    </div>
+                  </td>
+                  <td class="text-right text-nowrap"><small class="eta">${etaFormatted}</small></td>
+                </tr>
+              `);
+              $list.find('tbody').append($skill);
             }
           } else {
-            $skill = $(`
-              <tr id="${ID_PREFIX}-list-${intervalIndex}-skill-${skillIndex}">
-                <th class="text-left" scope="row"><img class="skill-icon-xxs" src="assets/media/skills/${skill.toLowerCase()}/${skill.toLowerCase()}.svg" alt="${skill}" /></th>
-                <td class="text-right text-nowrap"><small class="actual">${xpFormatted}</small></td>
-                <td class="text-right text-nowrap"><small class="period">${periodFormatted}</small></td>
-                ${
-                  isSession ? '' : `<td class="text-right text-nowrap"><small class="projected">${projectedXPFormatted}</small></td>`
-                }
-              </tr>
-            `);
-            $list.find('tbody').append($skill);
+            let xpFormatted = skillTracker.actual.toFixed(2) + 'xp';
+            let periodFormatted = timeToString(Math.floor(skillTracker.period / 1000), true);
+            let projectedXPFormatted = isSession ? '' : skillTracker.projected.toFixed(2) + 'xp';
+
+            if ($skill.length) {
+              $skill.find('.actual').html(xpFormatted);
+              $skill.find('.period').html(periodFormatted);
+              if (!isSession) {
+                $skill.find('.projected').html(projectedXPFormatted);
+              }
+            } else {
+              $skill = $(`
+                <tr id="${ID_PREFIX}-list-${intervalIndex}-skill-${skillIndex}">
+                  <th class="text-left" scope="row"><img class="skill-icon-xxs" src="assets/media/skills/${skill.toLowerCase()}/${skill.toLowerCase()}.svg" alt="${skill}" /></th>
+                  <td class="text-right text-nowrap"><small class="actual">${xpFormatted}</small></td>
+                  <td class="text-right text-nowrap"><small class="period">${periodFormatted}</small></td>
+                  ${
+                    isSession ? '' : `<td class="text-right text-nowrap"><small class="projected">${projectedXPFormatted}</small></td>`
+                  }
+                </tr>
+              `);
+              $list.find('tbody').append($skill);
+            }
           }
           $skill.show();
         } else {
