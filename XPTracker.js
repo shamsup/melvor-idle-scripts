@@ -205,12 +205,19 @@
   }
 
   function updateSkillETAPredictionXP(skillIndex) {
-    const nextLevelXP = exp.level_to_xp(skillLevel[skillIndex] + 1);
+    const currentLevel = (skillLevel[skillIndex] === 99 && showVirtualLevels) ? exp.xp_to_level(skillXP[skillIndex]) - 1 : skillLevel[skillIndex];
+    const currentLevelXP = exp.level_to_xp(currentLevel);
+    const nextLevelXP = exp.level_to_xp(currentLevel + 1);
     const xpToLevel = nextLevelXP - skillXP[skillIndex];
-    const periodActualXP = skillPredictionXP[skillIndex].getRange();
+    let levelProgress = (1 - (xpToLevel / (nextLevelXP - currentLevelXP))) * 100;
+    let periodActualXP = skillPredictionXP[skillIndex].getRange();
+    if (skillLevel[skillIndex] === 99 && !showVirtualLevels) {
+      periodActualXP = 0;
+      levelProgress = 100;
+    }
     xpTracker[skillNames[skillIndex]]['ETA'] = {
-      actual: skillPredictionXP[skillIndex].getRange(),
-      progress: nextLevelProgress[skillIndex],
+      actual: periodActualXP,
+      progress: levelProgress,
       eta: (xpToLevel / periodActualXP) * skillPredictionXP[skillIndex].getPeriod(),
     };
   }
