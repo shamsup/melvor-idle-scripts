@@ -153,16 +153,16 @@
       if (INCLUDE_UI) drawXPTracker();
     }
 
-    if (window.iXPTracking) {
-      clearInterval(window.iXPTracking);
+    if (window.shamsup_xpTrackingTimer) {
+      clearInterval(window.shamsup_xpTrackingTimer);
     }
-    window.iXPTracking = setInterval(updateXPTracker, MS_ACCURACY);
+    window.shamsup_xpTrackingTimer = setInterval(updateXPTracker, MS_ACCURACY);
     window.shamsup_xpTrackerSelectTab = xpTrackerSelectTab;
     if (INCLUDE_UI) {
       drawHeaderButton();
       drawXPTracker();
     }
-    console.log('XP tracker initialized. Cancel the tracker with "clearInterval(window.iXPTracking)".');
+    console.log('XP tracker initialized. Cancel the tracker with "clearInterval(window.shamsup_xpTrackingTimer)".');
   }
 
   function getSkillXP(skill) {

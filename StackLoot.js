@@ -1,8 +1,8 @@
 (function(){
-  if (window.iAutoStackLoot) {
-    clearInterval(window.iAutoStackLoot);
+  if (window.shamsup_stackLootTimer) {
+    clearInterval(window.shamsup_stackLootTimer);
   }
-  window.iAutoStackLoot = setInterval(() => {
+  window.shamsup_stackLootTimer = setInterval(() => {
     let oldLength = droppedLoot.length;
     let lootOrder = new Set(droppedLoot.map(item => item.itemID));
     if (droppedLoot.length) {
