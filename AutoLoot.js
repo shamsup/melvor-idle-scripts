@@ -1,8 +1,8 @@
 (function(){
-  if (window.iAutoLoot) {
-    clearInterval(window.iAutoLoot);
+  if (window.shamsup_autoLootTimer) {
+    clearInterval(window.shamsup_autoLootTimer);
   }
-  window.iAutoLoot = setInterval(() => {
+  window.shamsup_autoLootTimer = setInterval(() => {
     if (droppedLoot.length) {
       lootAll();
     }
